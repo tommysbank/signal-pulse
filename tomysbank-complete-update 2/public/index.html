@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#090b10" />
+    <meta name="description" content="Segnali crypto in tempo reale, pronti da copiare." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="TOMYSBANK" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="stylesheet" href="/styles.css" />
+    <title>TOMYSBANK</title>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="TOMYSBANK">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span>TOMYS<span>BANK</span></span>
+        </a>
+        <div class="top-actions">
+          <button class="icon-button" id="notificationButton" aria-label="Attiva notifiche">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+            <span class="notification-dot"></span>
+          </button>
+          <button class="avatar" aria-label="Profilo">TP</button>
+        </div>
+      </header>
+
+      <main>
+        <section class="intro">
+          <div>
+            <p class="eyebrow">Live signals</p>
+            <h1>Muoviti prima.<br /><em>Non più veloce.</em></h1>
+          </div>
+          <div class="live-pill"><span></span><strong id="sourceLabel">LIVE</strong></div>
+        </section>
+
+        <section id="latestSection" aria-labelledby="latestTitle">
+          <div class="section-heading">
+            <h2 id="latestTitle">Ultimo segnale</h2>
+            <time id="latestTime">ora</time>
+          </div>
+          <div id="latestSignal" class="signal-card featured skeleton" aria-live="polite"></div>
+        </section>
+
+        <section class="history" aria-labelledby="historyTitle">
+          <div class="section-heading">
+            <h2 id="historyTitle">Segnali recenti</h2>
+            <button class="text-button" id="filterButton">Tutti</button>
+          </div>
+          <div id="signalList" class="signal-list"></div>
+        </section>
+
+        <section class="leaderboard" aria-labelledby="leaderboardTitle">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Picchi verificati</p>
+              <h2 id="leaderboardTitle">Hall of X</h2>
+            </div>
+            <span class="leaderboard-badge">ATH DAL CALL</span>
+          </div>
+          <div id="leaderboardList" class="leaderboard-list"></div>
+        </section>
+      </main>
+
+      <nav class="bottom-nav" aria-label="Navigazione principale">
+        <button class="nav-item active" aria-current="page">
+          <svg viewBox="0 0 24 24"><path d="M4 13h4l3-8 3 14 3-6h3"/></svg>
+          <span>Segnali</span>
+        </button>
+        <button class="nav-item" id="installButton">
+          <svg viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M5 20h14"/></svg>
+          <span>Installa</span>
+        </button>
+        <button class="nav-item" id="infoButton">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v.01"/></svg>
+          <span>Come funziona</span>
+        </button>
+      </nav>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <dialog id="infoDialog">
+      <button class="dialog-close" aria-label="Chiudi">×</button>
+      <div class="dialog-icon">⚡</div>
+      <p class="eyebrow">Semplice, davvero</p>
+      <h2>Dal segnale al trade<br />in pochi secondi.</h2>
+      <ol>
+        <li><b>Ricevi</b><span>Il segnale arriva in tempo reale da Telegram.</span></li>
+        <li><b>Copia</b><span>Tocca il contract address: è subito negli appunti.</span></li>
+        <li><b>Apri</b><span>Controlla il grafico e decidi con la tua testa.</span></li>
+      </ol>
+      <p class="risk-note">I segnali non costituiscono consulenza finanziaria. Le memecoin sono asset ad alto rischio.</p>
+    </dialog>
+
+    <template id="featuredTemplate">
+      <article>
+        <div class="card-top">
+          <div class="token">
+            <div class="token-logo"></div>
+            <div>
+              <div class="token-name"><b></b><span></span></div>
+              <p class="token-full-name"></p>
+            </div>
+          </div>
+          <span class="fresh-badge">NUOVO</span>
+        </div>
+        <div class="stats">
+          <div><span>PREZZO CALL</span><strong data-tracking="entryPrice"></strong></div>
+          <div><span>ORA</span><strong data-tracking="currentX"></strong></div>
+          <div><span>PICCO RILEVATO</span><strong class="positive" data-tracking="peakX"></strong></div>
+        </div>
+        <div class="chart-panel">
+          <div class="chart-heading">
+            <div><span>ANDAMENTO DAL SEGNALE</span><strong data-tracking="trackingStatus"></strong></div>
+            <div class="chart-market"><span>MARKET CAP</span><strong data-tracking="marketCap"></strong></div>
+          </div>
+          <svg class="sparkline" viewBox="0 0 320 72" preserveAspectRatio="none" role="img" aria-label="Grafico del prezzo dal segnale">
+            <defs>
+              <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#bafc52" stop-opacity=".28"/>
+                <stop offset="1" stop-color="#bafc52" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path class="chart-area"></path>
+            <path class="chart-line"></path>
+            <line class="chart-entry" x1="0" x2="320"></line>
+          </svg>
+          <div class="chart-legend"><span><i class="legend-live"></i> Valore corrente</span><span><i class="legend-peak"></i> ATH dal call</span></div>
+        </div>
+        <p class="field-label">CONTRACT ADDRESS</p>
+        <button class="address-box" data-action="copy">
+          <span class="address-text"></span>
+          <span class="copy-icon">
+            <svg viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+          </span>
+        </button>
+        <div class="card-actions">
+          <button class="copy-primary" data-action="copy">
+            <svg viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+            COPIA ADDRESS
+          </button>
+          <a class="open-trade" target="_blank" rel="noopener noreferrer">
+            APRI GRAFICO
+            <svg viewBox="0 0 24 24"><path d="M7 17 17 7M8 7h9v9"/></svg>
+          </a>
+        </div>
+        <p class="card-foot"><span class="verified">✓</span> <a class="source-link" target="_blank" rel="noopener noreferrer">Ricevuto da Telegram</a> <span>•</span> <time></time></p>
+      </article>
+    </template>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
