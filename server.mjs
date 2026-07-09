@@ -98,6 +98,16 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+function publicSourceStatus() {
+  const { channel, sourceUrl, ...status } = sourceStatus;
+  return status;
+}
+
+function publicSignal(signal) {
+  const { sourceUrl, ...visibleSignal } = signal;
+  return visibleSignal;
+}
+
 async function restoreRuntimeState() {
   if (!publicChannel) return;
   try {
@@ -370,7 +380,7 @@ function broadcastEvent(event, data) {
 }
 
 function broadcast(signal) {
-  broadcastEvent("signal", signal);
+  broadcastEvent("signal", publicSignal(signal));
 }
 
 async function getWebPush() {
@@ -414,7 +424,7 @@ async function sendPush(signal) {
   return sendPushPayload({
     title: `New TOMYSBANK signal: $${signal.ticker}`,
     body: `${signal.chain} · Price tracking is live · Tap to copy the contract`,
-    signal
+    signal: publicSignal(signal)
   });
 }
 
@@ -474,7 +484,7 @@ function completeSignal(signal, reason, now = new Date()) {
   signal.tracking.endReason = reason;
   signal.tracking.deadCandidateSince = null;
   signal.tracking.missingPairSince = null;
-  broadcastEvent("price", signal);
+  broadcastEvent("price", publicSignal(signal));
   return true;
 }
 
@@ -662,7 +672,7 @@ async function updateTrackedPrices(targetSignals = signals) {
             }
             if (applyPair(signal, pair)) {
               updated = true;
-              broadcastEvent("price", signal);
+              broadcastEvent("price", publicSignal(signal));
             }
           }
         } catch (error) {
@@ -811,14 +821,18 @@ const server = createServer(async (req, res) => {
 
   try {
     if (req.method === "GET" && url.pathname === "/api/signals") {
-      return json(res, 200, { signals, allowDemo: allowDemo && !publicChannel, source: sourceStatus });
+      return json(res, 200, {
+        signals: signals.map(publicSignal),
+        allowDemo: allowDemo && !publicChannel,
+        source: publicSourceStatus()
+      });
     }
 
     if (req.method === "GET" && url.pathname === "/api/status") {
       const activeSignals = signals.filter((signal) => signal.tracking?.lifecycle !== "completed").length;
       return json(res, 200, {
         ok: !sourceStatus.lastError,
-        source: sourceStatus,
+        source: publicSourceStatus(),
         signalCount: signals.length,
         activeSignals,
         completedSignals: signals.length - activeSignals,
