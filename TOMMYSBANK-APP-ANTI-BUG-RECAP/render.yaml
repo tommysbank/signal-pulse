@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: signal-pulse
+    runtime: docker
+    plan: starter
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: 10000
+      - key: TELEGRAM_PUBLIC_URL
+        value: https://t.me/mad_apes_gambles
+      - key: SCRAPE_INTERVAL_MS
+        value: 8000
+      - key: PRICE_INTERVAL_MS
+        value: 3000
+      - key: STATE_FILE
+        value: /var/data/runtime-state.json
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: MEMBERSHIP_SITE_URL
+        sync: false
+      - key: MEMBERSHIP_API_URL
+        sync: false
+      - key: REQUIRE_MEMBERSHIP
+        value: "true"
+    disk:
+      name: signal-pulse-data
+      mountPath: /var/data
+      sizeGB: 1

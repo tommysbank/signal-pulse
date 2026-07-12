@@ -1,0 +1,13 @@
+{
+  "name": "tomysbank",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "ALLOW_DEMO=true node --watch server.mjs"
+  },
+  "optionalDependencies": {
+    "web-push": "^3.6.7"
+  }
+}
