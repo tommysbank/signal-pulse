@@ -1,3 +1,8 @@
+const canonicalAppHost = "app.tommysignals.com";
+if (window.location.hostname.endsWith(".onrender.com")) {
+  window.location.replace(`https://${canonicalAppHost}${window.location.pathname}${window.location.search}${window.location.hash}`);
+}
+
 const state = {
   signals: [],
   installPrompt: null,
@@ -14,7 +19,11 @@ const state = {
   membership: null,
   authMode: "login",
   eventsAbort: null,
-  privateInitialized: false
+  swRegistration: null,
+  pushConfig: null,
+  pendingNotificationAddress: "",
+  privateInitialized: false,
+  accessTracked: false
 };
 
 const LOGIN_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
@@ -146,6 +155,8 @@ const translations = {
     searchNotFound: "This address is not in TOMMYSBANK signals.",
     clearSearch: "Back to live",
     memberAccess: "Member access",
+    checkingAccess: "Checking your access.",
+    checkingAccessCopy: "Keeping your TOMMYSBANK session active. This only takes a moment.",
     memberTitle: "Your calls. One private account.",
     memberCopy: "Sign in with the account used on the TOMMYSBANK website.",
     memberLogin: "Log in",
@@ -291,6 +302,8 @@ const translations = {
     searchNotFound: "Questo address non è tra i segnali TOMMYSBANK.",
     clearSearch: "Torna live",
     memberAccess: "Accesso membri",
+    checkingAccess: "Controllo accesso.",
+    checkingAccessCopy: "Sto mantenendo attiva la tua sessione TOMMYSBANK. Ci vuole solo un attimo.",
     memberTitle: "Le tue call. Un solo account privato.",
     memberCopy: "Accedi con l’account usato sul sito TOMMYSBANK.",
     memberLogin: "Accedi",
@@ -332,6 +345,8 @@ const installButton = document.querySelector("#installButton");
 const infoDialog = document.querySelector("#infoDialog");
 const installDialog = document.querySelector("#installDialog");
 const accountDialog = document.querySelector("#accountDialog");
+const authGateTitle = document.querySelector("#authGateTitle");
+const authGateCopy = document.querySelector("#authGateCopy");
 const filterButton = document.querySelector("#filterButton");
 const authForm = document.querySelector("#authForm");
 const authMessage = document.querySelector("#authMessage");
@@ -343,6 +358,9 @@ const signalSearchInput = document.querySelector("#signalSearchInput");
 const clearSearchButton = document.querySelector("#clearSearchButton");
 const maxDisplayX = 10_000;
 const maxDisplayMarketCapUsd = 5_000_000_000;
+const ANALYTICS_ENDPOINT = "https://tommysignals.com/api/track";
+const VISITOR_KEY = "tomysbank-visitor-id";
+const SESSION_KEY = "tomysbank-session-id";
 
 const chainColors = {
   SOL: ["#bafc52", "#71d8ff"],
@@ -350,6 +368,61 @@ const chainColors = {
   BASE: ["#72a7ff", "#345dff"],
   RBH: ["#d4ff62", "#ffe56b"]
 };
+
+function stableId(key) {
+  let value = localStorage.getItem(key);
+  if (!value) {
+    value = `tb_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    localStorage.setItem(key, value);
+  }
+  return value;
+}
+
+function appSessionId() {
+  let value = sessionStorage.getItem(SESSION_KEY);
+  if (!value) {
+    value = `app_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    sessionStorage.setItem(SESSION_KEY, value);
+  }
+  return value;
+}
+
+function trackApp(type, metadata = {}) {
+  const payload = {
+    type,
+    source: "app",
+    visitorId: stableId(VISITOR_KEY),
+    sessionId: appSessionId(),
+    path: window.location.pathname + window.location.search + window.location.hash,
+    page: document.title,
+    language: state.language,
+    level: metadata.level,
+    message: metadata.message,
+    plan: metadata.plan || state.membership?.plan,
+    metadata: {
+      appHost: window.location.hostname,
+      standalone: isStandalone(),
+      membershipPlan: state.membership?.plan || null,
+      membershipActive: Boolean(state.membership?.active),
+      ...metadata,
+    },
+  };
+  fetch(ANALYTICS_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    keepalive: true,
+  }).catch(() => {});
+}
+
+function trackAppError(type, error, metadata = {}) {
+  trackApp(type, {
+    ...metadata,
+    level: "error",
+    message: error?.message || String(error || "Unknown error"),
+    stack: error?.stack || "",
+  });
+}
 
 function t(key, values = {}) {
   let value = translations[state.language]?.[key] ?? translations.en[key] ?? key;
@@ -380,6 +453,22 @@ function authHeaders(extra = {}) {
   return token ? { ...extra, authorization: `Bearer ${token}` } : extra;
 }
 
+async function refreshSupabaseSession(force = false) {
+  if (!state.supabase) return null;
+  const { data: current } = await state.supabase.auth.getSession();
+  let session = current?.session || null;
+  const expiresAt = Number(session?.expires_at || 0) * 1000;
+  const expiresSoon = session && expiresAt && expiresAt - Date.now() < 5 * 60_000;
+
+  if (session && (force || expiresSoon)) {
+    const { data, error } = await state.supabase.auth.refreshSession();
+    if (!error && data?.session) session = data.session;
+  }
+
+  state.session = session;
+  return state.session;
+}
+
 function recordLoginStart() {
   localStorage.setItem(LOGIN_STARTED_KEY, String(Date.now()));
 }
@@ -399,17 +488,27 @@ async function enforceLoginWindow() {
   await state.supabase?.auth.signOut();
   state.session = null;
   state.membership = null;
+  state.accessTracked = false;
   clearLoginStart();
+  trackApp("app_login_expired", { level: "error" });
   showAuthGate("login");
   setAuthMessage(t("memberCopy"));
   return true;
 }
 
 async function apiFetch(url, options = {}) {
-  return fetch(url, {
+  const makeRequest = () => fetch(url, {
     ...options,
     headers: authHeaders(options.headers || {})
   });
+
+  let response = await makeRequest();
+  if ((response.status === 401 || response.status === 403) && state.supabase && state.session) {
+    const previousToken = accessToken();
+    await refreshSupabaseSession(true);
+    if (accessToken() && accessToken() !== previousToken) response = await makeRequest();
+  }
+  return response;
 }
 
 function setAuthMessage(message, error = false) {
@@ -444,9 +543,24 @@ function updateAccountUi() {
   document.querySelector("#accountPlan").textContent = state.membership?.active ? membershipLabel() : t("membershipNeeded");
 }
 
+function setAuthGateText(titleKey, copyKey) {
+  if (authGateTitle) authGateTitle.textContent = t(titleKey);
+  if (authGateCopy) authGateCopy.textContent = t(copyKey);
+}
+
+function showAuthPending() {
+  document.body.classList.add("auth-pending");
+  document.body.classList.remove("auth-required");
+  setAuthGateText("checkingAccess", "checkingAccessCopy");
+  authForm.hidden = true;
+  document.querySelector(".auth-tabs").hidden = true;
+  membershipRequired.hidden = true;
+}
+
 function showAuthGate(reason = "login") {
   document.body.classList.remove("auth-pending");
   document.body.classList.add("auth-required");
+  setAuthGateText("memberTitle", "memberCopy");
   const signedIn = Boolean(state.session);
   authForm.hidden = signedIn;
   document.querySelector(".auth-tabs").hidden = signedIn;
@@ -464,19 +578,31 @@ function unlockApp() {
 }
 
 async function refreshAccess() {
+  if (state.supabase) await refreshSupabaseSession(false);
   if (!state.session) {
     state.membership = null;
+    state.accessTracked = false;
     showAuthGate("login");
     return false;
   }
   const response = await apiFetch("/api/access");
   if (!response.ok) {
     state.membership = null;
+    state.accessTracked = false;
+    trackApp("app_access_denied", { level: "error", status: response.status });
     showAuthGate("membership");
     return false;
   }
   const payload = await response.json();
   state.membership = payload.membership;
+  if (!state.accessTracked) {
+    trackApp("app_authenticated", {
+      plan: state.membership?.plan,
+      expiresAt: state.membership?.expiresAt || null,
+      email: state.session?.user?.email || "",
+    });
+    state.accessTracked = true;
+  }
   unlockApp();
   return true;
 }
@@ -484,10 +610,12 @@ async function refreshAccess() {
 async function initializeMemberAccess(config) {
   state.authConfig = config;
   if (!config.authRequired) {
+    trackApp("app_public_mode");
     unlockApp();
     return true;
   }
   if (!window.supabase?.createClient || !config.supabaseUrl || !config.supabasePublishableKey) {
+    trackApp("app_auth_config_error", { level: "error", message: "Supabase client or keys missing" });
     showAuthGate("login");
     setAuthMessage(t("authSetupMissing"), true);
     return false;
@@ -496,8 +624,7 @@ async function initializeMemberAccess(config) {
   state.supabase = window.supabase.createClient(config.supabaseUrl, config.supabasePublishableKey, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
   });
-  const { data } = await state.supabase.auth.getSession();
-  state.session = data.session;
+  await refreshSupabaseSession(false);
   if (state.session && !localStorage.getItem(LOGIN_STARTED_KEY)) recordLoginStart();
   if (await enforceLoginWindow()) return false;
   const allowed = await refreshAccess();
@@ -508,7 +635,10 @@ async function initializeMemberAccess(config) {
     if (event === "SIGNED_OUT") clearLoginStart();
     window.setTimeout(async () => {
       const active = await refreshAccess();
-      if (active) await initializePrivateApp();
+      if (active) {
+        await initializePrivateApp();
+        await syncPushSubscription({ silent: true });
+      }
     }, 0);
   });
   return allowed;
@@ -520,6 +650,8 @@ function setLanguage(language) {
   document.documentElement.lang = state.language;
   renderLanguageButton();
   localize();
+  if (document.body.classList.contains("auth-pending")) setAuthGateText("checkingAccess", "checkingAccessCopy");
+  if (document.body.classList.contains("auth-required")) setAuthGateText("memberTitle", "memberCopy");
   document.querySelector("#authSubmit").textContent = t("memberLogin");
   updateAccountUi();
   renderAll();
@@ -594,6 +726,7 @@ function clearSelectedSignal() {
 function openSignalFromSearch(value) {
   const signal = findSignalByAddress(value);
   if (!signal) {
+    trackApp("app_signal_search_miss", { queryLength: String(value || "").length });
     showToast(t("searchNotFound"));
     return;
   }
@@ -601,6 +734,7 @@ function openSignalFromSearch(value) {
   if (signalSearchInput) signalSearchInput.value = signal.address;
   renderAll();
   document.querySelector("#latestSection")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  trackApp("app_signal_search_opened", { signalId: signal.id, ticker: signal.ticker, chain: signal.chain });
   showToast(t("searchFound", { ticker: `$${signal.ticker}` }));
 }
 
@@ -910,6 +1044,7 @@ async function copyAddress(address) {
     input.remove();
   }
   if (navigator.vibrate) navigator.vibrate(35);
+  trackApp("app_contract_copied", { addressEnding: String(address || "").slice(-8) });
   showToast(t("copied"));
 }
 
@@ -955,7 +1090,9 @@ function renderFeatured(signal, animate = false) {
   fragment.querySelector(".fresh-badge").textContent = completed ? t("final") : t("live");
   renderCandles(fragment, signal);
   fragment.querySelector(".address-text").textContent = signal.address;
-  fragment.querySelector(".open-trade").href = graphUrl(signal);
+  const openTrade = fragment.querySelector(".open-trade");
+  openTrade.href = graphUrl(signal);
+  openTrade.addEventListener("click", () => trackApp("app_chart_opened", { signalId: signal.id, ticker: signal.ticker, chain: signal.chain, sourceButton: "featured" }));
   fragment.querySelector("time").textContent = relativeTime(signal.createdAt);
   bindCopyActions(fragment, signal);
 
@@ -981,6 +1118,9 @@ function activeCard(signal) {
     </div>
     <button class="active-copy">${t("copyContract")}</button>`;
   card.querySelector(".active-copy").addEventListener("click", () => copyAddress(signal.address));
+  card.addEventListener("click", (event) => {
+    if (!event.target.closest("button")) trackApp("app_signal_card_viewed", { signalId: signal.id, ticker: signal.ticker, chain: signal.chain });
+  });
   return card;
 }
 
@@ -996,6 +1136,7 @@ function historyCard(signal) {
   card.href = graphUrl(signal);
   card.target = "_blank";
   card.rel = "noopener noreferrer";
+  card.addEventListener("click", () => trackApp("app_chart_opened", { signalId: signal.id, ticker: signal.ticker, chain: signal.chain }));
   card.innerHTML = `
     <span class="history-logo">${signal.ticker.slice(0, 1)}</span>
     <span class="history-main">
@@ -1028,6 +1169,7 @@ function renderLeaderboard() {
     card.href = graphUrl(signal);
     card.target = "_blank";
     card.rel = "noopener noreferrer";
+    card.addEventListener("click", () => trackApp("app_chart_opened", { signalId: signal.id, ticker: signal.ticker, chain: signal.chain, sourceButton: "leaderboard" }));
     card.innerHTML = `
       <span class="leader-rank">${index + 1}</span>
       <span class="leader-token">
@@ -1093,6 +1235,7 @@ async function surfaceNotification(signal) {
     renotify: true,
     data: { url: "/", address: signal.address }
   });
+  trackApp("app_notification_shown", { signalId: signal.id, ticker: signal.ticker, chain: signal.chain });
 }
 
 function receiveSignal(signal) {
@@ -1100,6 +1243,7 @@ function receiveSignal(signal) {
   if (state.signals.some((item) => item.id === signal.id)) return;
   state.signals.unshift(signal);
   renderAll();
+  trackApp("app_signal_received", { signalId: signal.id, ticker: signal.ticker, chain: signal.chain });
   showToast(t("newSignal", { ticker: signal.ticker }));
   if (document.visibilityState !== "visible") void surfaceNotification(signal);
 }
@@ -1127,49 +1271,102 @@ function isStandalone() {
   return window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 }
 
+async function getAppConfig() {
+  if (state.pushConfig) return state.pushConfig;
+  const response = await fetch("/api/config", { cache: "no-store" });
+  if (!response.ok) throw new Error(`Config unavailable: ${response.status}`);
+  state.pushConfig = await response.json();
+  return state.pushConfig;
+}
+
+async function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return null;
+  if (state.swRegistration) return state.swRegistration;
+  const registration = await navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" });
+  state.swRegistration = await navigator.serviceWorker.ready;
+  void registration.update();
+  return state.swRegistration;
+}
+
+async function syncPushSubscription({ forceSubscribe = false, silent = true } = {}) {
+  if (!state.session) return false;
+  if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) return false;
+  if (Notification.permission !== "granted") {
+    notifyButton.classList.remove("enabled");
+    return false;
+  }
+
+  const config = await getAppConfig();
+  if (!config.pushReady || !config.vapidPublicKey) {
+    notifyButton.classList.remove("enabled");
+    return false;
+  }
+
+  const registration = await registerServiceWorker();
+  if (!registration?.pushManager) return false;
+  let subscription = await registration.pushManager.getSubscription();
+  if (!subscription && forceSubscribe) {
+    subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(config.vapidPublicKey)
+    });
+  }
+  if (!subscription) {
+    notifyButton.classList.remove("enabled");
+    return false;
+  }
+
+  state.pushSubscription = subscription;
+  const response = await apiFetch("/api/push/subscribe", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ subscription, language: state.language, silent })
+  });
+  if (!response.ok) throw new Error(`Push subscription failed with ${response.status}`);
+  notifyButton.classList.add("enabled");
+  trackApp("notification_synced", {
+    endpointHost: new URL(subscription.endpoint).hostname,
+    silent,
+    reason: forceSubscribe ? "new_subscription" : "existing_subscription"
+  });
+  return true;
+}
+
 async function enableNotifications() {
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
   if (isIos && !isStandalone()) {
+    trackApp("notification_install_required", { platform: "ios" });
     openInstallGuide("ios");
     showToast(t("installFirstIos"));
     return;
   }
   if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+    trackApp("notification_unsupported", { level: "error" });
     showToast(t("notificationUnsupported"));
     return;
   }
 
   try {
-    const config = await fetch("/api/config").then((response) => response.json());
+    const config = await getAppConfig();
     if (!config.pushReady || !config.vapidPublicKey) {
+      trackApp("notification_config_missing", { level: "error" });
       showToast(t("pushNotConfigured"));
       return;
     }
     const permission = await Notification.requestPermission();
     if (permission !== "granted") {
+      trackApp("notification_permission_denied", { level: "error", permission });
       showToast(t("notificationsBlocked"));
       return;
     }
 
-    const registration = await navigator.serviceWorker.ready;
-    let subscription = await registration.pushManager.getSubscription();
-    if (!subscription) {
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(config.vapidPublicKey)
-      });
-    }
-    state.pushSubscription = subscription;
-    notifyButton.classList.add("enabled");
-    const response = await apiFetch("/api/push/subscribe", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ subscription, language: state.language })
-    });
-    if (!response.ok) throw new Error(`Push subscription failed with ${response.status}`);
+    const synced = await syncPushSubscription({ forceSubscribe: true, silent: false });
+    if (!synced) throw new Error("Push subscription could not be created");
+    trackApp("notification_enabled");
     showToast(t("notificationsTesting"));
   } catch (error) {
     console.warn("Push setup failed:", error);
+    trackAppError("notification_error", error);
     showToast(t("notificationsFailed"));
   }
 }
@@ -1242,6 +1439,7 @@ async function connectPrivateEvents() {
   } catch (error) {
     if (controller.signal.aborted) return;
     document.querySelector(".live-pill").classList.add("reconnecting");
+    trackAppError("app_events_error", error);
     window.setTimeout(() => {
       if (state.privateInitialized && state.session) void connectPrivateEvents();
     }, 3_000);
@@ -1253,22 +1451,11 @@ async function initializePrivateApp() {
   state.privateInitialized = true;
 
   if ("serviceWorker" in navigator) {
-    const registration = await navigator.serviceWorker.register("/sw.js");
-    void registration.update();
-    if (Notification.permission === "granted") {
-      state.pushSubscription = await registration.pushManager?.getSubscription();
-      notifyButton.classList.toggle("enabled", Boolean(state.pushSubscription));
-      if (state.pushSubscription) {
-        void apiFetch("/api/push/subscribe", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            subscription: state.pushSubscription,
-            language: state.language,
-            silent: true
-          })
-        });
-      }
+    try {
+      await registerServiceWorker();
+      await syncPushSubscription({ silent: true });
+    } catch (error) {
+      trackAppError("service_worker_error", error);
     }
   }
 
@@ -1285,7 +1472,9 @@ async function initializePrivateApp() {
     state.source = payload.source || null;
     document.querySelector("#sourceLabel").textContent = "TOMMYSBANK";
     renderAll();
-  } catch {
+    trackApp("app_loaded_signals", { count: state.signals.length, sourceMode: state.source?.mode || "" });
+  } catch (error) {
+    trackAppError("app_load_signals_error", error);
     state.signals = sanitizeIncomingSignals(JSON.parse(localStorage.getItem("cached-signals") || "[]"));
     renderAll();
     showToast(t("offline"));
@@ -1299,17 +1488,50 @@ async function initializePrivateApp() {
     }
   }
 
+  if (state.pendingNotificationAddress) {
+    const address = state.pendingNotificationAddress;
+    state.pendingNotificationAddress = "";
+    window.setTimeout(() => openSignalFromSearch(address), 250);
+  }
+
   void connectPrivateEvents();
 }
 
 async function initialize() {
+  trackApp("app_open", { referrer: document.referrer || "" });
   setLanguage(state.language);
-  const config = await fetch("/api/config").then((response) => response.json());
-  const allowed = await initializeMemberAccess(config);
-  if (allowed) await initializePrivateApp();
+  showAuthPending();
+  state.pendingNotificationAddress = new URLSearchParams(window.location.search).get("address") || "";
+  try {
+    const config = await getAppConfig();
+    const allowed = await initializeMemberAccess(config);
+    if (allowed) await initializePrivateApp();
+  } catch (error) {
+    trackAppError("app_initialize_error", error);
+    showAuthGate("login");
+    setAuthMessage(error.message || t("authSetupMissing"), true);
+  }
+}
+
+async function resumePrivateApp(reason = "resume") {
+  if (!state.supabase) return;
+  try {
+    const active = await refreshAccess();
+    if (!active) return;
+    await syncPushSubscription({ silent: true }).catch((error) => trackAppError("notification_resync_error", error, { reason }));
+    if (state.privateInitialized) {
+      void connectPrivateEvents();
+    } else {
+      await initializePrivateApp();
+    }
+    trackApp("app_resumed", { reason });
+  } catch (error) {
+    trackAppError("app_resume_error", error, { reason });
+  }
 }
 
 async function signOutMember() {
+  trackApp("app_logout", { email: state.session?.user?.email || "" });
   state.eventsAbort?.abort();
   state.eventsAbort = null;
   state.privateInitialized = false;
@@ -1329,6 +1551,7 @@ document.querySelectorAll("[data-auth-mode]").forEach((button) => {
 authForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!state.supabase) {
+    trackApp("app_login_error", { level: "error", message: t("authSetupMissing") });
     setAuthMessage(t("authSetupMissing"), true);
     return;
   }
@@ -1336,8 +1559,10 @@ authForm.addEventListener("submit", async (event) => {
   const password = document.querySelector("#authPassword").value;
   setAuthMessage("");
 
+  trackApp("app_login_submit", { email });
   const { data, error } = await state.supabase.auth.signInWithPassword({ email, password });
   if (error) {
+    trackApp("app_login_error", { level: "error", email, message: error.message || t("loginFailed") });
     setAuthMessage(t("loginFailed"), true);
     return;
   }
@@ -1345,7 +1570,10 @@ authForm.addEventListener("submit", async (event) => {
   recordLoginStart();
 
   const allowed = await refreshAccess();
-  if (allowed) await initializePrivateApp();
+  if (allowed) {
+    trackApp("app_login_success", { email, plan: state.membership?.plan || "" });
+    await initializePrivateApp();
+  }
 });
 document.querySelector("#authReset").addEventListener("click", async () => {
   const email = document.querySelector("#authEmail").value.trim();
@@ -1353,30 +1581,51 @@ document.querySelector("#authReset").addEventListener("click", async () => {
   const { error } = await state.supabase.auth.resetPasswordForEmail(email, {
     redirectTo: state.authConfig?.membershipSiteUrl || window.location.origin
   });
+  trackApp(error ? "app_password_reset_error" : "app_password_reset_requested", {
+    level: error ? "error" : "info",
+    email,
+    message: error?.message || "",
+  });
   setAuthMessage(error ? error.message : t("resetSent"), Boolean(error));
 });
 document.querySelector("#checkAccessButton").addEventListener("click", async () => {
+  trackApp("app_access_recheck_clicked");
   const allowed = await refreshAccess();
   if (allowed) await initializePrivateApp();
 });
 document.querySelector("#gateLogoutButton").addEventListener("click", signOutMember);
 profileButton.addEventListener("click", () => {
+  trackApp("app_profile_opened");
   updateAccountUi();
   showDialog(accountDialog);
 });
 document.querySelector("#logoutButton").addEventListener("click", signOutMember);
 
-languageButton.addEventListener("click", () => setLanguage(state.language === "en" ? "it" : "en"));
+languageButton.addEventListener("click", () => {
+  setLanguage(state.language === "en" ? "it" : "en");
+  trackApp("app_language_changed", { language: state.language });
+});
 notifyButton.addEventListener("click", enableNotifications);
-installButton.addEventListener("click", () => openInstallGuide());
-document.querySelector("#nativeInstallButton").addEventListener("click", nativeInstall);
-document.querySelector("#infoButton").addEventListener("click", () => showDialog(infoDialog));
+installButton.addEventListener("click", () => {
+  trackApp("app_install_guide_opened", { sourceButton: "bottom_nav" });
+  openInstallGuide();
+});
+document.querySelector("#nativeInstallButton").addEventListener("click", () => {
+  trackApp("app_native_install_clicked");
+  void nativeInstall();
+});
+document.querySelector("#infoButton").addEventListener("click", () => {
+  trackApp("app_info_opened");
+  showDialog(infoDialog);
+});
 document.querySelector("#openInstallGuide").addEventListener("click", () => {
   infoDialog.close();
+  trackApp("app_install_guide_opened", { sourceButton: "info_dialog" });
   openInstallGuide();
 });
 filterButton.addEventListener("click", () => {
   state.historyFilter = state.historyFilter === "all" ? "completed" : "all";
+  trackApp("app_history_filter_changed", { filter: state.historyFilter });
   renderAll();
 });
 signalSearchForm?.addEventListener("submit", (event) => {
@@ -1391,6 +1640,7 @@ document.querySelectorAll("[data-recap-range]").forEach((button) => {
   button.addEventListener("click", () => {
     state.recapRange = button.dataset.recapRange || "today";
     localStorage.setItem("tomysbank-recap-range", state.recapRange);
+    trackApp("app_recap_range_changed", { range: state.recapRange });
     if (state.recapRange === "custom" && !recapFrom?.value && !recapTo?.value) {
       const today = new Date().toISOString().slice(0, 10);
       recapFrom.value = today;
@@ -1414,7 +1664,42 @@ window.addEventListener("beforeinstallprompt", (event) => {
   event.preventDefault();
   state.installPrompt = event;
 });
-window.addEventListener("appinstalled", () => showToast(t("installed")));
+window.addEventListener("appinstalled", () => {
+  trackApp("app_installed");
+  showToast(t("installed"));
+});
+if ("serviceWorker" in navigator) {
+  let reloadingForNewWorker = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloadingForNewWorker) return;
+    reloadingForNewWorker = true;
+    window.location.reload();
+  });
+  navigator.serviceWorker.addEventListener("message", (event) => {
+    if (event.data?.type === "notification-click" && event.data.address) {
+      state.pendingNotificationAddress = event.data.address;
+      if (state.signals.length) window.setTimeout(() => openSignalFromSearch(event.data.address), 300);
+    }
+  });
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && state.session) {
+    window.setTimeout(() => void resumePrivateApp("visibility"), 250);
+  }
+});
+window.addEventListener("online", () => {
+  if (state.session) void resumePrivateApp("online");
+});
+window.addEventListener("error", (event) => {
+  trackAppError("app_javascript_error", event.error || event.message, {
+    filename: event.filename || "",
+    lineno: event.lineno || "",
+    colno: event.colno || "",
+  });
+});
+window.addEventListener("unhandledrejection", (event) => {
+  trackAppError("app_unhandled_rejection", event.reason || "Unhandled rejection");
+});
 setInterval(() => {
   const active = state.signals.filter(isActive).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   latestTime.textContent = active[0] ? relativeTime(active[0].createdAt) : t("listening");

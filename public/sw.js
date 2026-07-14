@@ -1,4 +1,4 @@
-const CACHE = "tommysbank-v11";
+const CACHE = "tommysbank-v13-session-push";
 const SHELL = [
   "/",
   "/index.html",
@@ -25,6 +25,13 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET" || event.request.url.includes("/api/")) return;
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request, { cache: "no-store" })
+        .catch(() => caches.match("/index.html").then((cached) => cached || caches.match("/")))
+    );
+    return;
+  }
   event.respondWith(
     fetch(event.request)
       .then((response) => {
@@ -45,17 +52,22 @@ self.addEventListener("push", (event) => {
       badge: "/icon-192.png",
       tag: `signal-${data.signal?.id || Date.now()}`,
       renotify: true,
-      data: { url: "/", address: data.signal?.address }
+      data: { url: data.url || "/", address: data.signal?.address || "" }
     })
   );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  const targetUrl = event.notification.data?.url || "/";
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       const open = clients.find((client) => "focus" in client);
-      return open ? open.focus() : self.clients.openWindow("/");
+      if (open) {
+        open.postMessage({ type: "notification-click", address: event.notification.data?.address || "" });
+        return open.focus();
+      }
+      return self.clients.openWindow(targetUrl);
     })
   );
 });

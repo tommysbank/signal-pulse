@@ -63,6 +63,12 @@ button { font: inherit; }
   display: grid;
 }
 
+.auth-pending .auth-tabs,
+.auth-pending .auth-form,
+.auth-pending .membership-required {
+  display: none !important;
+}
+
 .auth-gate-card {
   width: min(100%, 520px);
   border: 1px solid var(--line);
@@ -70,6 +76,22 @@ button { font: inherit; }
   background: linear-gradient(155deg, rgba(24, 28, 37, .98), rgba(13, 16, 22, .98));
   box-shadow: 0 24px 80px rgba(0, 0, 0, .42);
   padding: clamp(22px, 6vw, 38px);
+}
+
+.auth-pending .auth-gate-card::after {
+  content: "";
+  display: block;
+  width: 42px;
+  height: 42px;
+  margin-top: 26px;
+  border: 3px solid rgba(186, 252, 82, .2);
+  border-top-color: var(--lime);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .auth-brand {
