@@ -1,0 +1,22 @@
+TOMMYSBANK APP FIX - 2026-07-15
+
+What changed:
+- Signals from Telegram are no longer published or pushed immediately just because a contract address was detected.
+- A signal is now kept hidden until Dexscreener confirms a real market pair.
+- If no pair is confirmed within the confirmation window, the pending signal is rejected and removed.
+- Old cached/persisted unconfirmed signals are filtered out so fake tokens do not reappear after a restart.
+- The external embedded live-chart section has been removed from the HTML and blocked from old cached DOM.
+- Users should use the "Open chart" button for the external market chart.
+- The login/access screen now avoids the repeated double-loading effect when a recent valid member session exists.
+- Service worker/cache version was bumped so mobile installs fetch the updated files.
+
+Render environment recommendation:
+- STARTUP_CATCHUP_MINUTES=0
+- MAX_SIGNAL_AGE_MINUTES=6
+- PAIR_CONFIRMATION_MINUTES=8
+- PRICE_INTERVAL_MS=4000
+- NODE_OPTIONS=--max-old-space-size=256
+
+Important:
+- Upload these files to the Render app repository root, not to the Netlify website repository.
+- After deploy, test from https://app.tommysignals.com and reinstall/refresh the home-screen app if the phone still shows old content.
