@@ -649,8 +649,15 @@ async function initializeMemberAccess(config) {
 
   state.supabase.auth.onAuthStateChange((event, session) => {
     state.session = session;
+    if (event === "INITIAL_SESSION") return;
     if (event === "SIGNED_IN" && session) recordLoginStart();
-    if (event === "SIGNED_OUT") clearLoginStart();
+    if (event === "SIGNED_OUT") {
+      clearLoginStart();
+      state.membership = null;
+      state.accessTracked = false;
+      showAuthGate("login");
+      return;
+    }
     window.setTimeout(async () => {
       const active = await refreshAccess();
       if (active) {
@@ -1782,11 +1789,9 @@ window.addEventListener("appinstalled", () => {
   showToast(t("installed"));
 });
 if ("serviceWorker" in navigator) {
-  let reloadingForNewWorker = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (reloadingForNewWorker) return;
-    reloadingForNewWorker = true;
-    window.location.reload();
+    trackApp("service_worker_controller_changed", { mode: "silent" });
+    if (state.session) window.setTimeout(() => void resumePrivateApp("service-worker"), 500);
   });
   navigator.serviceWorker.addEventListener("message", (event) => {
     if (event.data?.type === "notification-click" && event.data.address) {

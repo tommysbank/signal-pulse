@@ -1,4 +1,4 @@
-const CACHE = "tommysbank-v14-live-chart";
+const CACHE = "tommysbank-v15-smooth-start";
 const SHELL = [
   "/",
   "/index.html",
