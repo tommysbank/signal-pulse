@@ -98,6 +98,23 @@
           <div id="latestSignal" class="signal-card featured skeleton" aria-live="polite"></div>
         </section>
 
+        <section class="live-chart-section hidden" id="liveChartSection" aria-labelledby="liveChartTitle">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow" data-i18n="liveExternalChartEyebrow">External live chart</p>
+              <h2 id="liveChartTitle" data-i18n="liveExternalChartTitle">Live market chart</h2>
+            </div>
+            <a class="text-button" id="liveChartOpen" target="_blank" rel="noopener noreferrer" data-i18n="openLiveChart">Open full chart</a>
+          </div>
+          <div class="live-chart-card" id="liveChartCard">
+            <div class="live-chart-placeholder">
+              <strong data-i18n="chartUnavailable">Waiting for live chart</strong>
+              <span data-i18n="liveExternalChartCopy">The chart appears as soon as the pair is detected.</span>
+            </div>
+          </div>
+          <div class="live-chart-actions" id="liveChartActions"></div>
+        </section>
+
         <section class="active-desk" aria-labelledby="activeTitle">
           <div class="section-heading">
             <div>

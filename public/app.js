@@ -97,6 +97,13 @@ const translations = {
     entryLine: "Entry",
     copyContract: "COPY CONTRACT",
     openChart: "OPEN CHART",
+    liveExternalChartEyebrow: "External live chart",
+    liveExternalChartTitle: "Live market chart",
+    liveExternalChartCopy: "The chart appears as soon as the pair is detected.",
+    chartUnavailable: "Waiting for live chart",
+    openLiveChart: "Open full chart",
+    openPumpFun: "Open Pump.fun",
+    openDexscreener: "Open Dexscreener",
     verifiedTelegram: "Verified signal",
     monitoringActive: "Monitoring is live",
     emptyActive: "The next verified TOMMYSBANK signal will appear here in real time.",
@@ -244,6 +251,13 @@ const translations = {
     entryLine: "Ingresso",
     copyContract: "COPIA CONTRACT",
     openChart: "APRI GRAFICO",
+    liveExternalChartEyebrow: "Grafico live esterno",
+    liveExternalChartTitle: "Grafico mercato live",
+    liveExternalChartCopy: "Il grafico appare appena viene rilevata la pair.",
+    chartUnavailable: "In attesa del grafico live",
+    openLiveChart: "Apri grafico completo",
+    openPumpFun: "Apri Pump.fun",
+    openDexscreener: "Apri Dexscreener",
     verifiedTelegram: "Segnale verificato",
     monitoringActive: "Monitoraggio attivo",
     emptyActive: "Il prossimo segnale TOMMYSBANK verificato apparirà qui in tempo reale.",
@@ -327,6 +341,10 @@ const translations = {
 };
 
 const latest = document.querySelector("#latestSignal");
+const liveChartSection = document.querySelector("#liveChartSection");
+const liveChartCard = document.querySelector("#liveChartCard");
+const liveChartOpen = document.querySelector("#liveChartOpen");
+const liveChartActions = document.querySelector("#liveChartActions");
 const activeList = document.querySelector("#activeSignalList");
 const historyList = document.querySelector("#historyList");
 const leaderboardList = document.querySelector("#leaderboardList");
@@ -694,6 +712,33 @@ function graphUrl(signal) {
   return signal.tracking?.pairUrl || `https://dexscreener.com/search?q=${encodeURIComponent(signal.address)}`;
 }
 
+function dexscreenerEmbedUrl(signal) {
+  const pairUrl = signal?.tracking?.pairUrl || "";
+  if (!/https?:\/\/(?:www\.)?dexscreener\.com\/[^/?#]+\/[^/?#]+/i.test(pairUrl)) return "";
+  try {
+    const url = new URL(pairUrl);
+    url.searchParams.set("embed", "1");
+    url.searchParams.set("loadChartSettings", "0");
+    url.searchParams.set("trades", "0");
+    url.searchParams.set("tabs", "0");
+    url.searchParams.set("info", "0");
+    url.searchParams.set("chartLeftToolbar", "0");
+    url.searchParams.set("chartTheme", "dark");
+    url.searchParams.set("theme", "dark");
+    url.searchParams.set("chartStyle", "1");
+    url.searchParams.set("chartType", "usd");
+    url.searchParams.set("interval", "1");
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
+
+function pumpFunUrl(signal) {
+  if (!signal || signal.chain !== "SOL" || !signal.address) return "";
+  return `https://pump.fun/coin/${encodeURIComponent(signal.address)}`;
+}
+
 function normalizeAddress(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -1054,6 +1099,72 @@ function bindCopyActions(container, signal) {
   });
 }
 
+function renderLiveChart(signal) {
+  if (!liveChartSection || !liveChartCard || !liveChartOpen || !liveChartActions) return;
+  if (!signal) {
+    liveChartSection.classList.add("hidden");
+    liveChartCard.replaceChildren();
+    liveChartActions.replaceChildren();
+    liveChartCard.dataset.signalId = "";
+    liveChartCard.dataset.embedSrc = "";
+    return;
+  }
+
+  liveChartSection.classList.remove("hidden");
+  const chartUrl = graphUrl(signal);
+  const embedUrl = dexscreenerEmbedUrl(signal);
+  liveChartOpen.href = chartUrl;
+  liveChartOpen.classList.toggle("disabled", !chartUrl);
+
+  if (embedUrl) {
+    if (liveChartCard.dataset.signalId !== signal.id || liveChartCard.dataset.embedSrc !== embedUrl) {
+      liveChartCard.innerHTML = `
+        <iframe
+          class="live-chart-frame"
+          title="${signal.ticker} live chart"
+          src="${embedUrl}"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"
+          allow="clipboard-write; fullscreen"
+        ></iframe>`;
+      liveChartCard.dataset.signalId = signal.id;
+      liveChartCard.dataset.embedSrc = embedUrl;
+    }
+  } else if (
+    liveChartCard.dataset.signalId !== signal.id ||
+    liveChartCard.dataset.embedSrc ||
+    liveChartCard.dataset.language !== state.language
+  ) {
+    liveChartCard.innerHTML = `
+      <div class="live-chart-placeholder">
+        <strong>${t("chartUnavailable")}</strong>
+        <span>${t("liveExternalChartCopy")}</span>
+      </div>`;
+    liveChartCard.dataset.signalId = signal.id;
+    liveChartCard.dataset.embedSrc = "";
+    liveChartCard.dataset.language = state.language;
+  }
+
+  const actions = [];
+  actions.push(`<a class="chart-action" href="${chartUrl}" target="_blank" rel="noopener noreferrer">${t("openDexscreener")}</a>`);
+  const pumpUrl = pumpFunUrl(signal);
+  if (pumpUrl) actions.push(`<a class="chart-action pump" href="${pumpUrl}" target="_blank" rel="noopener noreferrer">${t("openPumpFun")}</a>`);
+  if (liveChartActions.dataset.signalId !== signal.id || liveChartActions.dataset.language !== state.language || liveChartActions.dataset.chartUrl !== chartUrl) {
+    liveChartActions.innerHTML = actions.join("");
+    liveChartActions.dataset.signalId = signal.id;
+    liveChartActions.dataset.language = state.language;
+    liveChartActions.dataset.chartUrl = chartUrl;
+    liveChartActions.querySelectorAll("a").forEach((link) => {
+      link.addEventListener("click", () => trackApp("app_live_chart_action_opened", {
+        signalId: signal.id,
+        ticker: signal.ticker,
+        chain: signal.chain,
+        provider: link.classList.contains("pump") ? "pumpfun" : "dexscreener"
+      }));
+    });
+  }
+}
+
 function renderFeatured(signal, animate = false) {
   const fragment = featuredTemplate.content.cloneNode(true);
   localize(fragment);
@@ -1204,8 +1315,10 @@ function renderAll() {
         </div>
       </div>`;
     latestTime.textContent = t("listening");
+    renderLiveChart(null);
   } else {
     renderFeatured(featured);
+    renderLiveChart(featured);
   }
 
   const visibleActive = activeSignals.slice(1, 5);

@@ -1,4 +1,4 @@
-const CACHE = "tommysbank-v13-session-push";
+const CACHE = "tommysbank-v14-live-chart";
 const SHELL = [
   "/",
   "/index.html",
