@@ -1,4 +1,4 @@
-const CACHE = "tommysbank-v16-urgent-signal-fix";
+const CACHE = "tommysbank-v17-full-recovery";
 const SHELL = [
   "/",
   "/index.html",
