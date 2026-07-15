@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#090b10" />
+    <meta name="description" content="Verified crypto signals, tracked live from the call." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="TOMMYSBANK" />
+    <link rel="manifest" href="/manifest.webmanifest?v=20260715-no-dex-cache" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="stylesheet" href="/styles.css?v=20260715-no-dex-cache" />
+    <title>TOMMYSBANK</title>
+  </head>
+  <body class="auth-pending">
+    <section class="auth-gate" id="authGate" aria-labelledby="authGateTitle">
+      <div class="auth-gate-card">
+        <a class="brand auth-brand" href="/" aria-label="TOMMYSBANK">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span>TOMMYS<span>BANK</span></span>
+        </a>
+        <p class="eyebrow" data-i18n="memberAccess">Member access</p>
+        <h1 id="authGateTitle" data-i18n="checkingAccess">Checking your access.</h1>
+        <p class="auth-gate-copy" id="authGateCopy" data-i18n="checkingAccessCopy">Keeping your TOMMYSBANK session active. This only takes a moment.</p>
+        <div class="auth-tabs">
+          <button class="auth-tab active" type="button" data-auth-mode="login" data-i18n="memberLogin">Log in</button>
+        </div>
+        <form class="auth-form" id="authForm">
+          <label>
+            <span data-i18n="memberEmail">Email</span>
+            <input id="authEmail" type="email" autocomplete="email" required />
+          </label>
+          <label>
+            <span data-i18n="memberPassword">Password</span>
+            <input id="authPassword" type="password" autocomplete="current-password" minlength="8" required />
+          </label>
+          <button class="copy-primary auth-submit" id="authSubmit" type="submit" data-i18n="memberLogin">Log in</button>
+          <button class="auth-reset" id="authReset" type="button" data-i18n="memberReset">Forgot password?</button>
+          <p class="auth-message" id="authMessage" role="status" aria-live="polite"></p>
+        </form>
+        <div class="membership-required" id="membershipRequired" hidden>
+          <strong data-i18n="membershipNeeded">An active membership is required.</strong>
+          <span data-i18n="membershipNeededCopy">Choose Monthly or Lifetime on the TOMMYSBANK website.</span>
+          <a id="membershipSiteLink" href="#" data-i18n="chooseMembership">Choose membership</a>
+          <button id="checkAccessButton" type="button" data-i18n="checkAccess">Check access again</button>
+          <button id="gateLogoutButton" type="button" data-i18n="memberLogout">Log out</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="TOMMYSBANK">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span>TOMMYS<span>BANK</span></span>
+        </a>
+        <div class="top-actions">
+          <button class="language-button" id="languageButton" aria-label="Change language">
+            <span class="language-flag active">🇬🇧</span>
+            <span class="language-code">EN</span>
+            <span class="language-arrow">↔</span>
+            <span class="language-flag">🇮🇹</span>
+          </button>
+          <button class="icon-button" id="notificationButton" data-i18n-aria="enableNotifications" aria-label="Enable notifications">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+            <span class="notification-dot"></span>
+          </button>
+          <button class="avatar" id="profileButton" aria-label="Profile">TP</button>
+        </div>
+      </header>
+
+      <main>
+        <section class="intro">
+          <div>
+            <p class="eyebrow" data-i18n="liveSignals">Live signals</p>
+            <h1><span data-i18n="headlineOne">New calls every day.</span><br /><em data-i18n="headlineTwo">Turn on notifications.</em></h1>
+          </div>
+          <div class="live-pill"><span></span><strong id="sourceLabel">TOMMYSBANK</strong></div>
+        </section>
+
+        <section class="signal-search" aria-labelledby="signalSearchTitle">
+          <p class="eyebrow" id="signalSearchTitle" data-i18n="searchEyebrow">Find signal</p>
+          <form id="signalSearchForm" class="signal-search-form">
+            <label class="sr-only" for="signalSearchInput" data-i18n="searchTitle">Paste contract address</label>
+            <input id="signalSearchInput" type="search" autocomplete="off" spellcheck="false" data-i18n-placeholder="searchPlaceholder" placeholder="Paste a TOMMYSBANK signal address" />
+            <button type="submit" data-i18n="searchOpen">Open</button>
+          </form>
+          <button class="clear-search hidden" id="clearSearchButton" type="button" data-i18n="clearSearch">Back to live</button>
+        </section>
+
+        <section id="latestSection" aria-labelledby="latestTitle">
+          <div class="section-heading">
+            <h2 id="latestTitle" data-i18n="commandCenter">Command center</h2>
+            <time id="latestTime" data-i18n="listening">listening</time>
+          </div>
+          <div id="latestSignal" class="signal-card featured skeleton" aria-live="polite"></div>
+        </section>
+
+        <section class="active-desk" aria-labelledby="activeTitle">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow" data-i18n="upToFive">Up to five at once</p>
+              <h2 id="activeTitle" data-i18n="liveDesk">Live desk</h2>
+            </div>
+            <span class="desk-count" id="activeCount">0 / 5</span>
+          </div>
+          <div id="activeSignalList" class="active-grid"></div>
+        </section>
+
+        <section class="recap-section" aria-labelledby="recapTitle">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow" data-i18n="recapEyebrow">Performance recap</p>
+              <h2 id="recapTitle" data-i18n="recapTitle">Peak X totals</h2>
+            </div>
+          </div>
+          <div class="recap-card">
+            <div class="recap-tabs" role="group" aria-label="Recap period">
+              <button class="recap-tab active" type="button" data-recap-range="today" data-i18n="recapToday">Day</button>
+              <button class="recap-tab" type="button" data-recap-range="week" data-i18n="recapWeek">Week</button>
+              <button class="recap-tab" type="button" data-recap-range="month" data-i18n="recapMonth">Month</button>
+              <button class="recap-tab" type="button" data-recap-range="all" data-i18n="recapAll">All</button>
+              <button class="recap-tab" type="button" data-recap-range="custom" data-i18n="recapCustom">Custom</button>
+            </div>
+            <div class="custom-recap hidden" id="customRecap">
+              <label>
+                <span data-i18n="recapFrom">From</span>
+                <input id="recapFrom" type="date" />
+              </label>
+              <label>
+                <span data-i18n="recapTo">To</span>
+                <input id="recapTo" type="date" />
+              </label>
+              <button type="button" id="recapApply" data-i18n="recapApply">Apply</button>
+            </div>
+            <div class="recap-grid" id="recapGrid">
+              <div><span data-i18n="recapSignals">Signals</span><strong data-recap="signals">0</strong></div>
+              <div><span data-i18n="recapTotalX">Total peak</span><strong data-recap="totalX">0.00×</strong></div>
+              <div><span data-i18n="recapValue">$100 each would be</span><strong data-recap="value">$0</strong></div>
+              <div><span data-i18n="recapProfit">Potential profit</span><strong data-recap="profit">$0</strong></div>
+            </div>
+            <p class="recap-note" id="recapNote" data-i18n="recapNote">Totals use each coin peak after the call, not the current price.</p>
+          </div>
+        </section>
+
+        <section class="history" aria-labelledby="historyTitle">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow" data-i18n="permanentRecord">Permanent record</p>
+              <h2 id="historyTitle" data-i18n="signalHistory">Signal history</h2>
+            </div>
+            <button class="text-button" id="filterButton" data-i18n="all">All</button>
+          </div>
+          <div id="historyList" class="history-list"></div>
+        </section>
+
+        <section class="leaderboard" aria-labelledby="leaderboardTitle">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow" data-i18n="verifiedPeaks">Verified peaks</p>
+              <h2 id="leaderboardTitle">Hall of X</h2>
+            </div>
+            <span class="leaderboard-badge" data-i18n="athSinceCall">ATH SINCE CALL</span>
+          </div>
+          <div id="leaderboardList" class="leaderboard-list"></div>
+        </section>
+      </main>
+
+      <nav class="bottom-nav" aria-label="Main navigation">
+        <button class="nav-item active" aria-current="page">
+          <svg viewBox="0 0 24 24"><path d="M4 13h4l3-8 3 14 3-6h3"/></svg>
+          <span data-i18n="signals">Signals</span>
+        </button>
+        <button class="nav-item" id="installButton">
+          <svg viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M5 20h14"/></svg>
+          <span data-i18n="install">Install</span>
+        </button>
+        <button class="nav-item" id="infoButton">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v.01"/></svg>
+          <span data-i18n="tutorial">Tutorial</span>
+        </button>
+      </nav>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <dialog id="infoDialog">
+      <button class="dialog-close" aria-label="Close">×</button>
+      <div class="dialog-icon">⚡</div>
+      <p class="eyebrow" data-i18n="builtForSpeed">Built for speed</p>
+      <h2 data-i18n="workflowTitle">From signal to chart in seconds.</h2>
+      <ol>
+        <li><b data-i18n="receive">Receive</b><span data-i18n="receiveText">A verified signal appears as soon as it drops.</span></li>
+        <li><b data-i18n="copy">Copy</b><span data-i18n="copyText">Tap the contract once and it is ready to paste.</span></li>
+        <li><b data-i18n="track">Track</b><span data-i18n="trackText">Current X, peak X and market activity update automatically.</span></li>
+      </ol>
+      <div class="tutorial-downloads" aria-labelledby="tutorialDownloadsTitle">
+        <p class="eyebrow" data-i18n="tutorialEyebrow">Guide / Tutorial</p>
+        <h3 id="tutorialDownloadsTitle" data-i18n="tutorialTitle">Read the TOMMYSBANK tutorial.</h3>
+        <p data-i18n="tutorialCopy">Download the PDF guide in your preferred language and keep it on your phone.</p>
+        <div class="tutorial-actions">
+          <a class="guide-download" href="/guides/tommysbank-guide-en.pdf" download>
+            <span>🇬🇧</span>
+            <strong data-i18n="downloadEnglishGuide">Download English PDF</strong>
+          </a>
+          <a class="guide-download" href="/guides/tommysbank-guida-it.pdf" download>
+            <span>🇮🇹</span>
+            <strong data-i18n="downloadItalianGuide">Scarica PDF Italiano</strong>
+          </a>
+        </div>
+      </div>
+      <button class="guide-primary" id="openInstallGuide" data-i18n="installationGuide">Installation guide</button>
+      <p class="risk-note" data-i18n="riskNote">Signals are not financial advice. Memecoins are extremely high-risk assets.</p>
+    </dialog>
+
+    <dialog id="installDialog" class="install-dialog">
+      <button class="dialog-close" aria-label="Close">×</button>
+      <div class="dialog-icon">📲</div>
+      <p class="eyebrow" data-i18n="homeScreen">Home screen</p>
+      <h2 data-i18n="installTitle">Install TOMMYSBANK like an app.</h2>
+      <div class="platform-tabs">
+        <button class="platform-tab active" data-platform="ios">iPhone</button>
+        <button class="platform-tab" data-platform="android">Android</button>
+      </div>
+      <ol class="install-steps" data-guide="ios">
+        <li><b data-i18n="iosStep1">Open in Safari</b><span data-i18n="iosStep1Text">This option is available from Safari on iPhone.</span></li>
+        <li><b data-i18n="iosStep2">Tap Share</b><span data-i18n="iosStep2Text">Use the square icon with the upward arrow.</span></li>
+        <li><b data-i18n="iosStep3">Add to Home Screen</b><span data-i18n="iosStep3Text">Scroll the menu and select Add to Home Screen.</span></li>
+        <li><b data-i18n="iosStep4">Open TOMMYSBANK</b><span data-i18n="iosStep4Text">Launch it from the new icon, then enable notifications.</span></li>
+      </ol>
+      <ol class="install-steps hidden" data-guide="android">
+        <li><b data-i18n="androidStep1">Open in Chrome</b><span data-i18n="androidStep1Text">Use Chrome on your Android phone.</span></li>
+        <li><b data-i18n="androidStep2">Open the menu</b><span data-i18n="androidStep2Text">Tap the three dots in the top-right corner.</span></li>
+        <li><b data-i18n="androidStep3">Install app</b><span data-i18n="androidStep3Text">Choose Install app or Add to Home screen.</span></li>
+        <li><b data-i18n="androidStep4">Allow alerts</b><span data-i18n="androidStep4Text">Open TOMMYSBANK and tap the bell to test notifications.</span></li>
+      </ol>
+      <button class="guide-primary" id="nativeInstallButton" data-i18n="installNow">Install now</button>
+    </dialog>
+
+    <dialog id="accountDialog">
+      <button class="dialog-close" aria-label="Close">×</button>
+      <div class="dialog-icon">👤</div>
+      <p class="eyebrow" data-i18n="memberAccess">Member access</p>
+      <h2 data-i18n="accountTitle">Your TOMMYSBANK account</h2>
+      <p id="accountEmail"></p>
+      <p class="account-plan" id="accountPlan"></p>
+      <button class="guide-primary" id="logoutButton" data-i18n="memberLogout">Log out</button>
+    </dialog>
+
+    <template id="featuredTemplate">
+      <article>
+        <div class="card-top">
+          <div class="token">
+            <div class="token-logo"></div>
+            <div>
+              <div class="token-name"><b></b><span></span></div>
+              <p class="token-full-name"></p>
+            </div>
+          </div>
+          <span class="fresh-badge" data-i18n="live">LIVE</span>
+        </div>
+        <div class="stats">
+          <div><span data-i18n="callPrice">CALL PRICE</span><strong data-tracking="entryPrice"></strong></div>
+          <div><span data-i18n="current">CURRENT</span><strong data-tracking="currentX"></strong></div>
+          <div><span data-i18n="peakTracked">PEAK TRACKED</span><strong class="positive" data-tracking="peakX"></strong></div>
+        </div>
+        <div class="chart-panel">
+          <div class="chart-heading">
+            <div><span data-i18n="chartSinceCall">PRICE SINCE CALL</span><strong data-tracking="trackingStatus"></strong></div>
+            <div class="chart-market"><span data-i18n="marketCap">MARKET CAP</span><strong data-tracking="marketCap"></strong></div>
+          </div>
+          <svg class="sparkline candle-chart" viewBox="0 0 320 92" preserveAspectRatio="none" role="img" data-i18n-aria="candleChart" aria-label="Candlestick chart since the signal">
+            <g class="chart-grid">
+              <line x1="0" x2="320" y1="23" y2="23"></line>
+              <line x1="0" x2="320" y1="46" y2="46"></line>
+              <line x1="0" x2="320" y1="69" y2="69"></line>
+            </g>
+            <g class="candles"></g>
+            <line class="chart-entry" x1="0" x2="320"></line>
+          </svg>
+          <div class="chart-legend">
+            <span><i class="legend-up"></i><span data-i18n="upCandle">Up</span></span>
+            <span><i class="legend-down"></i><span data-i18n="downCandle">Down</span></span>
+            <span><i class="legend-entry"></i><span data-i18n="entryLine">Entry</span></span>
+          </div>
+        </div>
+        <p class="field-label" data-i18n="contractAddress">CONTRACT ADDRESS</p>
+        <button class="address-box" data-action="copy">
+          <span class="address-text"></span>
+          <span class="copy-icon">
+            <svg viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+          </span>
+        </button>
+        <div class="card-actions">
+          <button class="copy-primary" data-action="copy">
+            <svg viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+            <span data-i18n="copyContract">COPY CONTRACT</span>
+          </button>
+          <a class="open-trade" target="_blank" rel="noopener noreferrer">
+            <span data-i18n="openChart">OPEN CHART</span>
+            <svg viewBox="0 0 24 24"><path d="M7 17 17 7M8 7h9v9"/></svg>
+          </a>
+        </div>
+        <p class="card-foot"><span class="verified">✓</span> <span class="source-link" data-i18n="verifiedTelegram">Verified signal</span> <span>•</span> <time></time></p>
+      </article>
+    </template>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
+    <script src="/app.js?v=20260715-no-dex-cache" type="module"></script>
+  </body>
+</html>
