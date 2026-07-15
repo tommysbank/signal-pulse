@@ -99,8 +99,8 @@ const translations = {
     openChart: "OPEN CHART",
     liveExternalChartEyebrow: "External live chart",
     liveExternalChartTitle: "Live market chart",
-    liveExternalChartCopy: "The chart appears as soon as the pair is detected.",
-    chartUnavailable: "Waiting for live chart",
+    liveExternalChartCopy: "Embedded charts are disabled for faster startup. Open the live chart below.",
+    chartUnavailable: "Live chart ready externally",
     openLiveChart: "Open full chart",
     openPumpFun: "Open Pump.fun",
     openDexscreener: "Open Dexscreener",
@@ -253,8 +253,8 @@ const translations = {
     openChart: "APRI GRAFICO",
     liveExternalChartEyebrow: "Grafico live esterno",
     liveExternalChartTitle: "Grafico mercato live",
-    liveExternalChartCopy: "Il grafico appare appena viene rilevata la pair.",
-    chartUnavailable: "In attesa del grafico live",
+    liveExternalChartCopy: "Il grafico integrato è disattivato per avviare l'app più velocemente. Apri il grafico live qui sotto.",
+    chartUnavailable: "Grafico live pronto esternamente",
     openLiveChart: "Apri grafico completo",
     openPumpFun: "Apri Pump.fun",
     openDexscreener: "Apri Dexscreener",
@@ -1119,25 +1119,10 @@ function renderLiveChart(signal) {
 
   liveChartSection.classList.remove("hidden");
   const chartUrl = graphUrl(signal);
-  const embedUrl = dexscreenerEmbedUrl(signal);
   liveChartOpen.href = chartUrl;
   liveChartOpen.classList.toggle("disabled", !chartUrl);
 
-  if (embedUrl) {
-    if (liveChartCard.dataset.signalId !== signal.id || liveChartCard.dataset.embedSrc !== embedUrl) {
-      liveChartCard.innerHTML = `
-        <iframe
-          class="live-chart-frame"
-          title="${signal.ticker} live chart"
-          src="${embedUrl}"
-          loading="lazy"
-          referrerpolicy="no-referrer-when-downgrade"
-          allow="clipboard-write; fullscreen"
-        ></iframe>`;
-      liveChartCard.dataset.signalId = signal.id;
-      liveChartCard.dataset.embedSrc = embedUrl;
-    }
-  } else if (
+  if (
     liveChartCard.dataset.signalId !== signal.id ||
     liveChartCard.dataset.embedSrc ||
     liveChartCard.dataset.language !== state.language
