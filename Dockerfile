@@ -20,4 +20,4 @@ ENV NODE_OPTIONS=--max-old-space-size=256
 
 EXPOSE 10000
 
-CMD ["node", "server.mjs"]
+CMD ["node", "runtime-hotfix.mjs"]
